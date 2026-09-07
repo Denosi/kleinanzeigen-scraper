@@ -1,0 +1,36 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+*.egg-info/
+
+# === Virtuelle Umgebungen ===
+venv/
+.venv/
+env/
+ENV/
+
+# === Secrets & Environment ===
+.env
+*.env
+.env.local
+.env.production
+
+# === Logs & Daten ===
+*.log
+scraper.log
+seen_ads.json
+debug.html
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === OS ===
+.DS_Store
+Thumbs.db

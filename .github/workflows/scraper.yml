@@ -1,0 +1,108 @@
+# =============================================================================
+# 🏠 Kleinanzeigen Scraper - GitHub Actions Workflow
+# =============================================================================
+# Beschreibung:
+#   - Prüft alle 30 Minuten Kleinanzeigen auf neue Immobilien
+#   - Sendet Benachrichtigungen per Telegram
+#   - Persistiert gesehene Anzeigen-IDs mittels GitHub Cache (kein Artifact!)
+#
+# WICHTIG: 
+#   - Cache ist für diesen Use-Case besser geeignet als Artifacts
+#   - Cache wird automatisch am Job-Ende gespeichert (kein Upload-Step nötig)
+#   - Restore-Keys ermöglichen Fallback auf ältere Cache-Versionen
+# =============================================================================
+
+name: Kleinanzeigen Scraper
+
+# Trigger: Wann soll der Workflow starten?
+on:
+  schedule:
+    # Alle 30 Minuten (GitHub plant in UTC!)
+    # Für Deutschland (UTC+2): Läuft um :00 und :30 Uhr deutscher Zeit
+    - cron: '*/30 * * * *'
+  
+  # Manuelles Auslösen ermöglichen (für Tests & Debugging)
+  workflow_dispatch:
+
+# Haupt-Job Definition
+jobs:
+  scrape:
+    runs-on: ubuntu-latest  # GitHub-hosted Runner mit Ubuntu
+    timeout-minutes: 10     # Maximal 10 Minuten Laufzeit pro Run
+    
+    steps:
+    # =======================================================================
+    # Schritt 1: Code aus dem Repository auschecken
+    # =======================================================================
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      # Lädt den aktuellen Code aus dem main-Branch auf den Runner
+
+    # =======================================================================
+    # Schritt 2: Python-Umgebung einrichten
+    # =======================================================================
+    - name: 🐍 Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'  # Python-Version festlegen
+        cache: 'pip'            # pip-Cache aktivieren (beschleunigt Installation)
+
+    # =======================================================================
+    # Schritt 3: Python-Abhängigkeiten installieren
+    # =======================================================================
+    - name: 📦 Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      # Installiert: requests, beautifulsoup4, python-dotenv
+
+    # =======================================================================
+    # Schritt 4: Cache für seen_ads.json laden (ERSATZ FÜR ARTIFACTS!)
+    # =======================================================================
+    - name: ♻️ Restore seen_ads.json from cache
+      uses: actions/cache@v3
+      with:
+        # Pfad zur Datei, die gecacht werden soll
+        path: seen_ads.json
+        
+        # Primärer Cache-Key: Eindeutig pro Run (verhindert Konflikte)
+        # Format: Linux-seen-ads-<laufende-nummer>
+        key: ${{ runner.os }}-seen-ads-${{ github.run_id }}
+        
+        # Fallback-Keys: Wenn exakter Key nicht gefunden wird, suche nach:
+        restore-keys: |
+          ${{ runner.os }}-seen-ads-
+        
+        # Hinweis: 
+        # - Bei Cache-Miss (erster Run): Datei existiert nicht → Scraper startet mit leerer Liste
+        # - Bei Cache-Hit: Datei wird automatisch vor dem nächsten Step bereitgestellt
+        # - Kein continue-on-error nötig – Cache ist "best effort" by design!
+
+    # =======================================================================
+    # Schritt 5: Scraper ausführen
+    # =======================================================================
+    - name: ▶️ Run scraper
+      env:
+        # Umgebungsvariablen aus GitHub Secrets laden
+        # Diese sind verschlüsselt und sicher!
+        KLEINANZEIGEN_URL: ${{ secrets.KLEINANZEIGEN_URL }}
+        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      run: python scraper.py
+      # Der Scraper liest seen_ads.json (falls im Cache) und schreibt sie zurück
+      # Cache wird AUTOMATISCH am Ende des Jobs gespeichert – kein separater Step!
+
+    # =======================================================================
+    # Schritt 6: Debug-Info (optional, aber hilfreich)
+    # =======================================================================
+    - name: 📊 Show cache status
+      if: always()  # Immer ausführen, auch bei Fehlern
+      run: |
+        echo "=== Cache Debug Info ==="
+        echo "Runner OS: ${{ runner.os }}"
+        echo "Run ID: ${{ github.run_id }}"
+        echo "seen_ads.json exists: $([ -f seen_ads.json ] && echo 'YES' || echo 'NO')"
+        if [ -f seen_ads.json ]; then
+          echo "File size: $(wc -c < seen_ads.json) bytes"
+          echo "Content preview: $(head -c 200 seen_ads.json)..."
+        fi
