@@ -81,3 +81,11 @@ jobs:
         if [ -f seen_ads.json ]; then
           echo "File size: $(wc -c < seen_ads.json) bytes"
         fi
+
+    - name: 📸 Upload Debug Screenshot
+      if: always() # Wird immer ausgeführt, auch bei Fehlern
+      uses: actions/upload-artifact@v4
+      with:
+        name: debug-screenshot
+        path: debug_screenshot.png
+        retention-days: 1

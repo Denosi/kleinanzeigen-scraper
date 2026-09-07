@@ -47,43 +47,72 @@ LOG_FILE = "scraper.log"
 # =============================================================================
 # 🌐 PLAYWRIGHT: HTML MIT JAVASCRIPT LADEN
 # =============================================================================
+# =============================================================================
+# 🌐 PLAYWRIGHT: HTML MIT JAVASCRIPT LADEN (KORRIGIERTE VERSION)
+# =============================================================================
 def fetch_html_with_playwright(url: str) -> str:
     """Lädt die Seite mit einem echten Browser, um Bot-Schutz und JS-Rendering zu bewältigen."""
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            # WICHTIG: Stealth-Args hinzufügen, um Headless-Erkennung zu umgehen
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox'
+                ]
+            )
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                 viewport={"width": 1920, "height": 1080},
                 locale="de-DE",
-                timezone_id="Europe/Berlin"
+                timezone_id="Europe/Berlin",
+                # Echte Browser-Header vortäuschen
+                extra_http_headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                    "Accept-Language": "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+                    "Sec-Fetch-Dest": "document",
+                    "Sec-Fetch-Mode": "navigate",
+                    "Sec-Fetch-Site": "none",
+                    "Sec-Fetch-User": "?1"
+                }
             )
             page = context.new_page()
             
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_timeout(3000)
+            # WICHTIG: 'networkidle' warten, damit JS die Anzeigen nachladen kann
+            print(f"DEBUG: Lade URL: {url}")
+            page.goto(url, wait_until="networkidle", timeout=45000)
+            
+            # KORREKTUR: Kein 'await' bei sync_playwright!
+            page.screenshot(path="debug_screenshot.png")
+            print("DEBUG: Screenshot gespeichert als debug_screenshot.png")
             
             # Cookie-Banner akzeptieren
             try:
-                page.click('button:has-text("Alle akzeptieren")', timeout=3000)
-                page.wait_for_timeout(3000)
+                page.locator('button:has-text("Alle akzeptieren")').click(timeout=3000)
+                page.wait_for_timeout(2000)
             except Exception:
-                pass
+                pass # Kein Banner oder schon akzeptiert
             
             # Warten, bis die Anzeigen geladen sind
             try:
                 page.wait_for_selector('article[data-adid]', timeout=10000)
+                print("DEBUG: Artikel-Selektor erfolgreich gefunden!")
             except Exception:
-                pass # Falls keine da sind, machen wir trotzdem weiter
+                print("DEBUG: Artikel-Selektor NICHT gefunden. Seite ist evtl. blockiert.")
             
             html_content = page.content()
+            print(f"DEBUG: HTML-Länge: {len(html_content)} Bytes")
+            
             browser.close()
             return html_content
             
     except Exception as e:
         print(f"[ERROR] Playwright-Fehler: {e}")
+        import traceback
+        traceback.print_exc()
         return None
-
 # =============================================================================
 # 📝 HELPER-FUNKTIONEN
 # =============================================================================
