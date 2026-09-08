@@ -7,7 +7,7 @@ name: Kleinanzeigen Scraper
 on:
   schedule:
     # Alle 30 Minuten (GitHub plant in UTC!)
-    - cron: '*/30 * * * *'
+    - cron: '0 * * * *'
   
   # Manuelles Auslösen ermöglichen (für Tests & Debugging)
   workflow_dispatch:
