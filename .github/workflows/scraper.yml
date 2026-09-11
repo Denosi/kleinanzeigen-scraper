@@ -47,17 +47,18 @@ jobs:
         playwright install-deps chromium
 
     # =======================================================================
-    # Schritt 4: Cache für seen_ads.json laden
+    # Schritt 4: Cache für seen_ads.json laden (GEÄNDERT!)
     # =======================================================================
     - name: ♻️ Restore seen_ads.json from cache
-      uses: actions/cache@v4  # Auf v4 aktualisiert (neueste Version)
+      uses: actions/cache@v4
       with:
         path: seen_ads.json
-        # OPTIMIERT: Statischer Key ist besser für Persistenz. 
-        # Der alte Key mit run_id erzeugte bei jedem Run einen "neuen" Cache.
-        key: ${{ runner.os }}-seen-ads
+        # GEÄNDERT: Jeder Run bekommt einen eindeutigen Key
+        # Damit wird der Cache bei JEDEM Run gespeichert (nicht nur beim ersten!)
+        key: ${{ runner.os }}-seen-ads-${{ github.run_id }}
+        # Fallback: Nimm den NEUESTEN Cache mit diesem Präfix
         restore-keys: |
-          ${{ runner.os }}-seen-ads
+          ${{ runner.os }}-seen-ads-
 
     # =======================================================================
     # Schritt 5: Scraper ausführen
@@ -83,7 +84,7 @@ jobs:
         fi
 
     - name: 📸 Upload Debug Screenshot
-      if: always() # Wird immer ausgeführt, auch bei Fehlern
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: debug-screenshot
