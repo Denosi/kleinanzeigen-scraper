@@ -41,8 +41,10 @@ if not KLEINANZEIGEN_URL:
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-SEEN_FILE = "seen_ads.json"
-LOG_FILE = "scraper.log"
+# Dateien immer NEBEN scraper.py ablegen – egal von wo das Script gestartet wird
+BASE_DIR = Path(__file__).resolve().parent
+SEEN_FILE = str(BASE_DIR / "seen_ads.json")
+LOG_FILE = str(BASE_DIR / "scraper.log")
 
 # =============================================================================
 # 🌐 PLAYWRIGHT: HTML MIT JAVASCRIPT LADEN
